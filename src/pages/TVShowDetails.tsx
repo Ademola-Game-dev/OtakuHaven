@@ -5,12 +5,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Plus, Heart, Star, Calendar, ArrowLeft, Globe, Tv } from 'lucide-react';
+import { Play, Plus, Heart, Star, Calendar, ArrowLeft, Globe, Tv, Clock } from 'lucide-react';
 import { useTMDBMediaDetails } from '../hooks/useTMDB';
+import { useTVSeasonDetails } from '../hooks/useTVSeasonDetails';
 import { useAuth } from '../hooks/useAuth';
 import { useUserData } from '../hooks/useUserData';
 import { AuthModal } from '../components/auth/AuthModal';
 import { logger } from '../utils';
+import { API_CONFIG } from '../constants';
 import type { TVShow } from '../types/media';
 
 interface TVShowDetailsProps {
@@ -19,9 +21,11 @@ interface TVShowDetailsProps {
 }
 
 export const TVShowDetails: React.FC<TVShowDetailsProps> = ({ showId, onBack }) => {
+  // Initialize from URL params if available
+  const urlParams = new URLSearchParams(window.location.search);
   const [selectedPlayer, setSelectedPlayer] = useState<'vidlink' | 'embed-api' | 'vidsrc'>('vidlink');
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const [selectedEpisode, setSelectedEpisode] = useState(1);
+  const [selectedSeason, setSelectedSeason] = useState(parseInt(urlParams.get('season') || '1'));
+  const [selectedEpisode, setSelectedEpisode] = useState(parseInt(urlParams.get('episode') || '1'));
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const { currentUser } = useAuth();
@@ -43,9 +47,23 @@ export const TVShowDetails: React.FC<TVShowDetailsProps> = ({ showId, onBack }) 
   // Type guard to ensure we have TV show data
   const tvShow = tvShowData?.type === 'tv' ? tvShowData as TVShow : null;
 
+  // Fetch season details with episodes
+  const { data: seasonData, loading: seasonLoading } = useTVSeasonDetails(
+    parseInt(showId),
+    selectedSeason
+  );
+
   // Check if TV show is in user's lists
   const isInWatchlist = currentUser ? checkIsInWatchlist(parseInt(showId)) : false;
   const isLiked = currentUser ? checkIsInFavorites(parseInt(showId)) : false;
+
+  // Update URL when season/episode changes
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('season', selectedSeason.toString());
+    url.searchParams.set('episode', selectedEpisode.toString());
+    window.history.replaceState({}, '', url.toString());
+  }, [selectedSeason, selectedEpisode]);
 
   // VidLink Watch Progress Tracking
   useEffect(() => {
@@ -156,7 +174,7 @@ export const TVShowDetails: React.FC<TVShowDetailsProps> = ({ showId, onBack }) 
       icons: 'vid',
       title: 'true',
       poster: 'true',
-      autoplay: 'false',
+      autoplay: 'true',
       nextbutton: 'true',
       player: 'default',
       ...(startTime > 0 && { startAt: startTime.toString() })
@@ -398,92 +416,284 @@ export const TVShowDetails: React.FC<TVShowDetailsProps> = ({ showId, onBack }) 
       </div>
 
       {/* Content Section - Direct Player */}
-      <div id="content-section" className="relative bg-slate-950/95 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
-          {/* Player Section */}
-          <div className="space-y-4 sm:space-y-8">
-            {/* Player Selection */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-500 bg-clip-text text-transparent">
-                Choose Your Player
-              </h2>
-              
-              <div className="flex items-center gap-1 sm:gap-2 bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 sm:p-2 w-full sm:w-auto">
-                {[
-                  { id: 'vidlink', label: 'VidLink' },
-                  { id: 'embed-api', label: 'Embed API' },
-                  { id: 'vidsrc', label: 'VidSrc' }
-                ].map(({ id, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => setSelectedPlayer(id as 'vidlink' | 'embed-api' | 'vidsrc')}
-                    className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
-                      selectedPlayer === id
-                        ? 'bg-gradient-to-r from-green-400 to-teal-500 text-black shadow-lg'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
+      <div id="content-section" className="relative bg-gradient-to-b from-slate-950 to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+          
+          {/* Video Player Card */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 lg:mb-12"
+          >
+            <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+              {/* Player Header */}
+              <div className="p-4 sm:p-6 border-b border-white/10">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                      Now Watching
+                    </h2>
+                    <p className="text-white/60 text-sm">
+                      Season {selectedSeason} • Episode {selectedEpisode}
+                      {seasonData?.episodes.find(ep => ep.episodeNumber === selectedEpisode)?.name && 
+                        ` • ${seasonData.episodes.find(ep => ep.episodeNumber === selectedEpisode)?.name}`
+                      }
+                    </p>
+                  </div>
+                  
+                  {/* Player Selection Pills */}
+                  <div className="flex items-center gap-2 bg-slate-800/50 backdrop-blur-sm rounded-xl p-1.5">
+                    {[
+                      { id: 'vidlink', label: 'VidLink' },
+                      { id: 'embed-api', label: 'Embed' },
+                      { id: 'vidsrc', label: 'VidSrc' }
+                    ].map(({ id, label }) => (
+                      <button
+                        key={id}
+                        onClick={() => setSelectedPlayer(id as 'vidlink' | 'embed-api' | 'vidsrc')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          selectedPlayer === id
+                            ? 'bg-gradient-to-r from-green-400 to-teal-500 text-black shadow-lg'
+                            : 'text-white/70 hover:text-white hover:bg-slate-700/50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Video Player */}
+              <div className="relative aspect-video bg-black">
+                <iframe
+                  src={getPlayerUrl(tvShow.id, selectedSeason, selectedEpisode)}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+
+              {/* Player Footer */}
+              <div className="p-4 bg-slate-900/80 backdrop-blur-sm">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-white/80">
+                      Playing on {selectedPlayer === 'vidlink' ? 'VidLink Pro' : selectedPlayer === 'embed-api' ? 'Embed API' : 'VidSrc'}
+                    </span>
+                  </div>
+                  <span className="text-white/50">
+                    Switch players if one doesn't work
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Episodes Section */}
+          <div className="space-y-6">
+            {/* Season Selector */}
+            <div>
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Select Season</h3>
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+                {Array.from({ length: tvShow?.numberOfSeasons || 1 }, (_, i) => (
+                  <motion.button
+                    key={i + 1}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setSelectedSeason(i + 1);
+                      setSelectedEpisode(1);
+                    }}
+                    className={`flex-shrink-0 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold whitespace-nowrap transition-all ${
+                      selectedSeason === i + 1
+                        ? 'bg-gradient-to-r from-green-400 to-teal-500 text-black shadow-lg shadow-green-500/25'
+                        : 'bg-slate-800/50 text-white/80 hover:text-white hover:bg-slate-700/50 border border-white/10 hover:border-white/20'
                     }`}
                   >
-                    {label}
-                  </button>
+                    Season {i + 1}
+                  </motion.button>
                 ))}
               </div>
             </div>
 
-            {/* Season and Episode Selection */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-white font-medium">Season:</label>
-                <select 
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(parseInt(e.target.value))}
-                  className="bg-slate-800/50 backdrop-blur-sm text-white px-3 py-2 rounded-lg border border-white/10 hover:border-green-400/30 focus:border-green-400 focus:outline-none"
-                >
-                  {Array.from({ length: tvShow?.numberOfSeasons || 1 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>Season {i + 1}</option>
-                  ))}
-                </select>
+            {/* Episodes List - Horizontal Scroll */}
+            <div>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                  <Tv size={18} className="text-green-400 sm:w-5 sm:h-5" />
+                  <span className="flex items-center gap-1">
+                    Episodes
+                    {seasonData?.episodes && (
+                      <span className="text-white/60 text-sm sm:text-base">({seasonData.episodes.length})</span>
+                    )}
+                  </span>
+                </h3>
               </div>
               
-              <div className="flex items-center gap-2">
-                <label className="text-white font-medium">Episode:</label>
-                <select 
-                  value={selectedEpisode}
-                  onChange={(e) => setSelectedEpisode(parseInt(e.target.value))}
-                  className="bg-slate-800/50 backdrop-blur-sm text-white px-3 py-2 rounded-lg border border-white/10 hover:border-green-400/30 focus:border-green-400 focus:outline-none"
-                >
-                  {Array.from({ length: 20 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>Episode {i + 1}</option>
+              {seasonLoading ? (
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-96 rounded-xl overflow-hidden">
+                      <div className="aspect-video bg-slate-800/50 animate-pulse" />
+                      <div className="p-4 bg-slate-800/30">
+                        <div className="h-5 bg-slate-700/50 rounded mb-2 animate-pulse" />
+                        <div className="h-4 bg-slate-700/30 rounded mb-1 animate-pulse" />
+                        <div className="h-4 bg-slate-700/30 rounded w-2/3 animate-pulse" />
+                      </div>
+                    </div>
                   ))}
-                </select>
-              </div>
-            </div>
+                </div>
+              ) : seasonData?.episodes && seasonData.episodes.length > 0 ? (
+                <div className="relative">
+                  <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+                    {seasonData.episodes.map((episode, index) => (
+                      <motion.div
+                        key={episode.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ 
+                          delay: index * 0.05,
+                          type: "spring",
+                          stiffness: 260,
+                          damping: 20
+                        }}
+                        onClick={() => {
+                          setSelectedEpisode(episode.episodeNumber);
+                          document.getElementById('content-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className={`group cursor-pointer rounded-xl overflow-hidden transition-all duration-300 flex-shrink-0 w-64 sm:w-72 md:w-80 lg:w-96 snap-start ${
+                          selectedEpisode === episode.episodeNumber
+                            ? 'ring-2 ring-green-400'
+                            : 'hover:ring-2 hover:ring-white/30'
+                        }`}
+                      >
+                        {/* Episode Card */}
+                        <div className="relative h-full bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-white/10 group-hover:border-white/20 transition-colors">
+                          {/* Episode Thumbnail */}
+                          <div className="relative aspect-video bg-slate-900">
+                            {episode.stillPath ? (
+                              <img
+                                src={`${API_CONFIG.tmdb.imageBaseUrl}/w500${episode.stillPath}`}
+                                alt={episode.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                                <Tv size={48} className="text-slate-600" />
+                              </div>
+                            )}
+                            
+                            {/* Episode Number Badge */}
+                            <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-black/90 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg">
+                              <span className="text-white font-bold text-xs sm:text-sm">EP {episode.episodeNumber}</span>
+                            </div>
 
-            {/* Video Player */}
-            <div className="relative aspect-video bg-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10">
-              <iframe
-                src={getPlayerUrl(tvShow.id, selectedSeason, selectedEpisode)}
-                className="w-full h-full"
-                frameBorder="0"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
-            </div>
+                            {/* Rating Badge */}
+                            {episode.voteAverage > 0 && (
+                              <div className="absolute top-2 sm:top-3 right-2 sm:right-3 bg-black/90 backdrop-blur-sm px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md sm:rounded-lg flex items-center gap-1 sm:gap-1.5">
+                                <Star size={12} className="text-yellow-400 sm:w-3.5 sm:h-3.5" fill="currentColor" />
+                                <span className="text-white text-xs sm:text-sm font-bold">
+                                  {episode.voteAverage.toFixed(1)}
+                                </span>
+                              </div>
+                            )}
 
-            {/* Player Info */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 sm:p-6 bg-slate-800/30 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-white/10">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-white font-medium text-sm sm:text-base">
-                  Currently playing Season {selectedSeason}, Episode {selectedEpisode} on: {
-                    selectedPlayer === 'vidlink' ? 'VidLink Pro' :
-                    selectedPlayer === 'embed-api' ? 'Embed API Stream' :
-                    selectedPlayer === 'vidsrc' ? 'VidSrc ICU' : 'Unknown'
-                  }
-                </span>
-              </div>
-              <div className="text-white/60 text-sm">
-                Switch players if current one doesn't work
-              </div>
+                            {/* Play Overlay */}
+                            {selectedEpisode === episode.episodeNumber ? (
+                              <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20 flex items-center justify-center"
+                              >
+                                <motion.div 
+                                  initial={{ scale: 0.8 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: "spring", stiffness: 300 }}
+                                  className="relative"
+                                >
+                                  {/* Pulsing ring */}
+                                  <motion.div
+                                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute inset-0 bg-green-400 rounded-full blur-xl"
+                                  />
+                                  <div className="relative bg-gradient-to-br from-green-400 to-teal-500 rounded-full p-4 shadow-2xl">
+                                    <Play size={28} fill="black" className="text-black ml-0.5" />
+                                  </div>
+                                </motion.div>
+                                <div className="absolute bottom-3 left-0 right-0 text-center">
+                                  <span className="bg-green-400/90 text-black px-3 py-1 rounded-full text-xs font-bold">
+                                    NOW PLAYING
+                                  </span>
+                                </div>
+                              </motion.div>
+                            ) : (
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                                <motion.div 
+                                  whileHover={{ scale: 1.1 }}
+                                  className="bg-white/95 backdrop-blur-sm rounded-full p-4 shadow-lg scale-90 group-hover:scale-100 transition-transform duration-300"
+                                >
+                                  <Play size={24} fill="black" className="text-black ml-0.5" />
+                                </motion.div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Episode Info */}
+                          <div className="p-3 sm:p-4 bg-gradient-to-b from-slate-800/50 to-slate-900/80">
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <h4 className="text-white font-bold text-sm sm:text-base line-clamp-2 group-hover:text-green-400 transition-colors duration-300 flex-1">
+                                {episode.name || `Episode ${episode.episodeNumber}`}
+                              </h4>
+                              {selectedEpisode === episode.episodeNumber && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="flex-shrink-0 bg-green-400 text-black px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                >
+                                  PLAYING
+                                </motion.div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              {episode.runtime > 0 && (
+                                <div className="flex items-center gap-1.5 bg-slate-800/50 px-2.5 py-1.5 rounded-lg">
+                                  <Clock size={14} className="text-green-400" />
+                                  <span className="text-white/80 text-sm font-medium">{episode.runtime} min</span>
+                                </div>
+                              )}
+                              
+                              {/* Quick play button on hover */}
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-green-400 hover:bg-green-500 text-black p-2 rounded-full shadow-lg"
+                              >
+                                <Play size={16} fill="black" className="ml-0.5" />
+                              </motion.button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  
+                  {/* Scroll Hint */}
+                  {seasonData.episodes.length > 2 && (
+                    <div className="hidden sm:block absolute right-0 top-0 bottom-4 w-16 sm:w-20 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none" />
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-white/60 bg-slate-800/20 rounded-xl border border-white/10">
+                  <Tv size={48} className="mx-auto mb-4 text-white/30" />
+                  <p>No episodes available for this season</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
