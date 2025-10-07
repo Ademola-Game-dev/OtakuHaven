@@ -27,6 +27,7 @@
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -42,6 +43,16 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.6);
+}
+
+/* Smooth scrollbar for horizontal scroll */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Line clamp utility */
@@ -60,7 +71,36 @@
   border-radius: 4px;
 }
 
-/* Smooth transitions for better UX */
+/* Performance optimizations */
 * {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  /* Use GPU acceleration for transforms and opacity */
+  will-change: auto;
+}
+
+/* Only animate transform and opacity for better performance */
+.animate-optimized {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Prevent layout thrashing */
+img, video {
+  content-visibility: auto;
+}
+
+/* Optimize scrolling performance */
+.scroll-smooth {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

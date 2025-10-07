@@ -3,7 +3,7 @@
  * Copyright (c) 2025 SnoozeScript
  */
 
-import React from 'react';
+import React, { memo, useState } from 'react';
 import { Play, Star } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import type { Media } from '../../types';
@@ -14,12 +14,14 @@ interface MediaCardProps {
   showProgress?: boolean;
 }
 
-export const MediaCard: React.FC<MediaCardProps> = ({ 
+// Memoized component to prevent unnecessary re-renders
+export const MediaCard: React.FC<MediaCardProps> = memo(({ 
   media, 
   onClick, 
   showProgress = false 
 }) => {
   const navigate = useNavigate();
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   // Add safety check for media object
   if (!media || !media.id) {
@@ -72,11 +74,19 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       aria-label={`${media.title} - ${media.type === 'movie' ? 'Movie' : 'TV Show'}`}
     >
       <div className="relative h-full overflow-hidden">
+        {/* Placeholder while image loads */}
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-slate-700 animate-pulse" />
+        )}
         <img 
           src={media.posterUrl} 
           alt={media.title}
           loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          decoding="async"
+          onLoad={() => setImageLoaded(true)}
+          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="absolute bottom-4 left-4 right-4">
@@ -110,4 +120,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function for memo - only re-render if these props change
+  return (
+    prevProps.media.id === nextProps.media.id &&
+    prevProps.media.posterUrl === nextProps.media.posterUrl &&
+    prevProps.showProgress === nextProps.showProgress &&
+    prevProps.onClick === nextProps.onClick
+  );
+});

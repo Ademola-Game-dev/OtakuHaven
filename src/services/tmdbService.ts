@@ -353,6 +353,25 @@ class TMDBService {
       }
     });
   }
+
+  async getSeasonDetails(tvId: number, seasonNumber: number): Promise<{
+    episodes: Array<{
+      id: number;
+      episode_number: number;
+      name: string;
+      overview: string;
+      still_path: string | null;
+      air_date: string;
+      runtime: number;
+      vote_average: number;
+    }>;
+    name: string;
+    overview: string;
+    poster_path: string | null;
+    season_number: number;
+  }> {
+    return await this.makeRequest(`/tv/${tvId}/season/${seasonNumber}`);
+  }
 }
 
 export const tmdbService = new TMDBService();

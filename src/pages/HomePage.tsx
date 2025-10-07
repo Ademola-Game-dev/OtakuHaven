@@ -49,15 +49,11 @@ const RefinedPoster: React.FC<{
       initial={{ opacity: 0, y: 20 }}
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       transition={{ 
-        duration: 0.5, 
-        delay: index * 0.08,
+        duration: 0.4, 
+        delay: index * 0.05, // Reduced delay for faster rendering
         ease: "easeOut"
       }}
-      whileHover={{ 
-        y: -8,
-        transition: { duration: 0.3, ease: "easeOut" }
-      }}
-      className={`group relative ${sizeClasses[size]} cursor-pointer`}
+      className={`group relative ${sizeClasses[size]} cursor-pointer transition-transform duration-300 hover:-translate-y-2`}
       onClick={handleClick}
     >
       {/* Main Poster */}
@@ -65,77 +61,64 @@ const RefinedPoster: React.FC<{
         <img
           src={media.posterUrl}
           alt={media.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
         
         {/* Subtle Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
-        {/* Content Overlay */}
-        <AnimatePresence>
-          {showInfo && (
-            <motion.div
-              className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100"
-              initial={{ opacity: 0, y: 10 }}
-              whileHover={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="space-y-2">
-                <h3 className="text-white font-semibold text-sm sm:text-base line-clamp-2 leading-tight">
-                  {media.title}
-                </h3>
-                
-                <div className="flex items-center gap-3 text-xs text-gray-300">
+        {/* Content Overlay - using CSS transitions instead of Framer Motion for better performance */}
+        {showInfo && (
+          <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="space-y-2">
+              <h3 className="text-white font-semibold text-sm sm:text-base line-clamp-2 leading-tight">
+                {media.title}
+              </h3>
+              
+              <div className="flex items-center gap-3 text-xs text-gray-300">
+                <div className="flex items-center gap-1">
+                  <Calendar size={12} />
+                  <span>{getYear(media.releaseDate)}</span>
+                </div>
+                {media.rating && media.rating > 0 && (
                   <div className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    <span>{getYear(media.releaseDate)}</span>
+                    <Star size={12} className="text-yellow-400 fill-current" />
+                    <span>{formatRating(media.rating)}</span>
                   </div>
-                  {media.rating && media.rating > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Star size={12} className="text-yellow-400 fill-current" />
-                      <span>{formatRating(media.rating)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white/90 hover:bg-white text-black rounded-md text-xs font-medium transition-colors duration-200"
-                  >
-                    <Play size={12} />
-                    <span>Play</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white rounded-md text-xs font-medium backdrop-blur-sm transition-colors duration-200"
-                  >
-                    <Info size={12} />
-                    <span>Info</span>
-                  </motion.button>
-                </div>
+                )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+              <div className="flex gap-2">
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white/90 hover:bg-white text-black rounded-md text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  <Play size={12} />
+                  <span>Play</span>
+                </button>
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white rounded-md text-xs font-medium backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  <Info size={12} />
+                  <span>Info</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Simple Type Badge */}
         <div className="absolute top-3 left-3">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05 + 0.2 }}
-            className={`px-2 py-1 rounded text-xs font-medium backdrop-blur-sm ${
+          <div
+            className={`px-2 py-1 rounded text-xs font-medium backdrop-blur-sm transition-opacity duration-300 ${
               media.type === 'movie' 
                 ? 'bg-blue-500/80 text-white' 
                 : 'bg-purple-500/80 text-white'
             }`}
           >
             {media.type === 'movie' ? 'Movie' : 'TV'}
-          </motion.div>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -385,26 +368,6 @@ export const HomePage: React.FC = () => {
             <p className="text-xl text-gray-300 mb-8 leading-relaxed max-w-2xl mx-auto">
               Explore thousands of movies and TV shows with detailed information, ratings, and reviews.
             </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center gap-3 bg-white text-black px-8 py-3 text-lg font-semibold rounded-lg hover:bg-gray-100 transition-colors duration-200"
-              >
-                <Play size={20} />
-                Get Started
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center gap-3 bg-white/10 text-white px-8 py-3 text-lg font-semibold rounded-lg border border-white/20 hover:bg-white/20 transition-colors duration-200 backdrop-blur-sm"
-              >
-                <Info size={20} />
-                Learn More
-              </motion.button>
-            </div>
           </motion.div>
         </div>
       </section>

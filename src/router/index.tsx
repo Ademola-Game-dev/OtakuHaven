@@ -3,28 +3,45 @@
  * Copyright (c) 2025 SnoozeScript
  */
 
+import { lazy, Suspense } from 'react';
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { ReactiveGridBackground } from '../components/backgrounds/ReactiveGridBackground';
 import { MagneticDock } from '../components/layout/MagneticDock';
 import { Footer } from '../components/layout/Footer';
 import { RouterDevtools } from '../components/dev/RouterDevtools';
-import { HomePage } from '../pages/HomePage';
-import { MovieDetails } from '../pages/MovieDetails';
-import { TVShowDetails } from '../pages/TVShowDetails';
-import { ProfilePage } from '../pages/ProfilePage';
-import MoviesPage from '../pages/MoviesPage';
-import TVShowsPage from '../pages/TVShowsPage';
+
+// Lazy load page components for better initial load performance
+const HomePage = lazy(() => import('../pages/HomePage').then(m => ({ default: m.HomePage })));
+const MovieDetails = lazy(() => import('../pages/MovieDetails').then(m => ({ default: m.MovieDetails })));
+const TVShowDetails = lazy(() => import('../pages/TVShowDetails').then(m => ({ default: m.TVShowDetails })));
+const ProfilePage = lazy(() => import('../pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const MoviesPage = lazy(() => import('../pages/MoviesPage'));
+const TVShowsPage = lazy(() => import('../pages/TVShowsPage'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400 mb-4"></div>
+      <p className="text-white/60">Loading...</p>
+    </div>
+  </div>
+);
 
 // Root route with layout
 const rootRoute = createRootRoute({
   component: () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-900 relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-900 relative flex flex-col">
       <ReactiveGridBackground />
       <MagneticDock />
-      <main>
-        <Outlet />
+      <main className="flex-1 relative z-10">
+        <Suspense fallback={<LoadingFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
-      <Footer />
+      <div className="relative z-10">
+        <Footer />
+      </div>
       <RouterDevtools />
     </div>
   ),
